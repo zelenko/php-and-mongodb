@@ -148,7 +148,7 @@ if($_GET['mode']=='onhand'){
 	echo '<table class="fixed_headers seven_columns">';
 	echo "<thead><tr><th>Product ID & Buyline</th><th>Product Description</th><th>Onhand: ".$_GET['branch']."</th><th>12 Mo Sales</th><th>Category</th></tr></thead>\n";
 	foreach ($cursor as $doc) {
-		$new_value = my_decrypt($doc->product_name, '46Qxw81X6nuu');
+		$new_value = my_decrypt($doc->product_name, '*********');
 		$onhand = (array)$doc->onhand;
 		$sales = (array)$doc->sales;
 		$top_branch = array_search(max($sales),$sales);
@@ -200,7 +200,7 @@ if($_GET['mode']=='product'){
 	echo '<table class="fixed_headers seven_columns">';
 	echo "<thead><tr><th>Product ID & Buyline</th><th>Product Description</th><th></th><th>12 Mo Sales</th><th>Category</th></tr></thead>\n";
 	foreach ($cursor as $doc) {
-		$new_value = my_decrypt($doc->product_name, '46Qxw81X6nuu');
+		$new_value = my_decrypt($doc->product_name, '*********');
 		$onhand = (array)$doc->onhand;
 		$sales = (array)$doc->sales;
 		$top_branch = array_search(max($sales),$sales);
@@ -267,7 +267,7 @@ if($_GET['mode']=='buyline'){
 	echo '<table class="fixed_headers seven_columns">';
 	echo "<thead><tr><th>Product ID & Buyline</th><th>Product Description</th><th>Onhand: ".$_GET['branch']."</th><th>12 Mo Sales</th><th>Category</th></tr></thead>\n";
 	foreach ($cursor as $doc) {
-		$new_value = my_decrypt($doc->product_name, '46Qxw81X6nuu');
+		$new_value = my_decrypt($doc->product_name, '*********');
 		$onhand = (array)$doc->onhand;
 		$sales = (array)$doc->sales;
 		$top_branch = array_search(max($sales),$sales);
@@ -353,7 +353,7 @@ if($_GET['mode']=='short'){
 	echo '<table class="fixed_headers seven_columns">';
 	echo "<thead><tr><th>Product, Priceline</th><th>Product Description</th><th>Rank</th><th>demand / onhand</th><th>Difference / Days</th></tr></thead>\n";
 	foreach ($cursor as $doc) {
-		$new_value = my_decrypt($doc->product_name, '46Qxw81X6nuu');
+		$new_value = my_decrypt($doc->product_name, '*********');
 		// Display rows of data
 		echo '<tr><td><a href="product/'.$doc->_id .'/">'.$doc->_id . '</a> ('.$doc->pline. ')</td>'.
 		'<td>'.$new_value.'</a></td><td>' . $doc->ranks->$_GET['branch'] .
