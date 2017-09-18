@@ -339,6 +339,37 @@ if($_GET['mode']=='short'){
     ],
    'cursor' => new stdClass
 ]);
+/*
+// works
+db.runCommand( {
+    aggregate: "products3",
+    pipeline: [
+          { $addFields: {
+                  "isFirstGreater": { "$cmp": [ {$multiply: ["$BR01.daily_demand" , 3]}, "$onhand_qty.BR01" ] }
+          }},
+          { $project: {
+             //   "BR01.daily_demand": 1,
+                'BR01.daily_demand2': {$multiply: ["$BR01.daily_demand" , 3]},
+                'BR01.daily_demand': 1,
+                "isFirstGreater": 1,
+                "onhand_qty.BR01" : 1
+          }},
+          { $match : {
+                isFirstGreater : 1,
+                "BR01.daily_demand" : {$gt: 0},
+                "onhand_qty.BR01" : {$gt: 0}
+          }},
+          { $sort : {
+                "BR01.daily_demand" : -1,
+                "onhand_qty.BR01" : -1
+          }},
+          { $limit : 3
+          }
+    ],
+    cursor: { },
+    allowDiskUse:true
+} )
+*/
 
 	try {
 		$cursor = $manager->executeCommand("onlinestore", $command);

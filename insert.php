@@ -65,7 +65,7 @@ return $map;
 
 
 // Inserting file into databae
-function insert_into($file = "key_user", $columns = "`user`, `key`, `level`, `detail`, `order`, `branch`") {
+function insert_into($file) {
 	global $manager, $bulk, $mapping;
     
     $file = "../../../home/ftpscript/inbox/".$file;
