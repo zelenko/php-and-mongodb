@@ -171,8 +171,8 @@ function insert_into($file = "key_user") {
 // creating document to insert into log collection
 $doc = [
     'date' => new MongoDB\BSON\UTCDateTime,
-    'execution_time' => round( ( (microtime(true) - $time1)),3 ),
-    'file_name' => $_GET['file'],
+    'php_seconds' => round( ( (microtime(true) - $time1)),3 ),
+    'file' => $_GET['file'],
     'matched' => $log->matched,
     'inserted' => $log->inserted,
     'updated' => $log->modified,
