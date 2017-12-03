@@ -6,18 +6,7 @@ require_once('dbconn.php');
 $bulk = new MongoDB\Driver\BulkWrite();
 
 switch ($_GET['file']) {
-    case "product_onhand.txt":
-        $mapping = 'mapping_onhand';
-        break;
-
-    case "product_general.txt":
-        $mapping = 'mapping_general';
-        break;
-
-    case "product_avgcost.txt":
-        $mapping = 'product_avgcost';
-        break;
-
+    
     case "product_sales.txt":
         $mapping = 'product_sales';
         break;
@@ -86,7 +75,7 @@ db.spaces.update(
 */
 
 function insert_into($file = "key_user") {
-	global $manager, $bulk, $mapping;
+    global $manager, $bulk, $mapping;
     
     $file = "./".$file;
 	if (file_exists($file)) {
