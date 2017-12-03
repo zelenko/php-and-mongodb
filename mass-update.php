@@ -1,15 +1,24 @@
 <?php
-$time1 = microtime(true);
+ob_implicit_flush(true);
+ob_end_flush();
+
+echo ('PHP: ');
+
+$time1 = '';
+$time2 = microtime(true);
 ini_set('max_execution_time', 300); //300 seconds = 5 minutes
 
 require_once('dbconn.php');
-$bulk = new MongoDB\Driver\BulkWrite();
+
 
 $mapping = 'mass_upload';
 
 // this must be called after the $mapping variable is declared
-get_the_job_done();
+//$output = get_the_job_done();
+//insert_log($output);
 
+$output = populate_array();
+insert_log($output);
 
 // Mapping for ...
 function mass_upload($doc){
@@ -30,11 +39,15 @@ function mass_upload($doc){
         'onhand_value.BR19' => (double)(number_format($doc->avg_cost->BR19 * $doc->onhand->BR19,2,'.','')),
         'onhand_value.BR21' => (double)(number_format($doc->avg_cost->BR21 * $doc->onhand->BR21,2,'.','')),
         'onhand_value.BR22' => (double)(number_format($doc->avg_cost->BR22 * $doc->onhand->BR22,2,'.','')),
-        'onhand_value.BRPT' => (double)(number_format($doc->avg_cost->BRPT * $doc->onhand->BRPT,2,'.',''))
+        'onhand_value.BRPT' => (double)(number_format($doc->avg_cost->BRPT * $doc->onhand->BRPT,2,'.','')),
+        'onhand_value.BR60' => (double)(number_format($doc->avg_cost->BR60 * $doc->onhand->BR60,2,'.',''))
     ];
 return $map;
 }
+
 /*
+To run this query in MongoDB Shell, use this command:
+
 db.products3.find({pline: {$ne:"NONSTOCK-"}, pline: {$exists:1}, onhand: {$exists:1}, avg_cost: {$exists:1} } ).forEach(function(doc) {
     db.products3.update({ _id: doc._id }, { $set: {
             "onhand_value.BR01": parseFloat((doc.onhand.BR01 * doc.avg_cost.BR01).toFixed(2)),
@@ -52,55 +65,191 @@ db.products3.find({pline: {$ne:"NONSTOCK-"}, pline: {$exists:1}, onhand: {$exist
             "onhand_value.BR19": parseFloat((doc.onhand.BR19 * doc.avg_cost.BR19).toFixed(2)),
             "onhand_value.BR21": parseFloat((doc.onhand.BR21 * doc.avg_cost.BR21).toFixed(2)),
             "onhand_value.BR22": parseFloat((doc.onhand.BR22 * doc.avg_cost.BR22).toFixed(2)),
-            "onhand_value.BRPT": parseFloat((doc.onhand.BRPT * doc.avg_cost.BRPT).toFixed(2))
-    
+            "onhand_value.BRPT": parseFloat((doc.onhand.BRPT * doc.avg_cost.BRPT).toFixed(2)),
+            "onhand_value.BR60": parseFloat((doc.onhand.BR60 * doc.avg_cost.BR60).toFixed(2))
     } } )
     })
 */
 
 function get_the_job_done(){
-    global $manager, $bulk, $mapping;
+    global $manager, $mapping, $time1;
+    $time1 = microtime(true);
+    $bulk = new MongoDB\Driver\BulkWrite();
     $query = new MongoDB\Driver\Query(
-		[
-            //'pline' => ['$ne' => 'NONSTOCK'],
+        [   // query (empty: select all)
+            //'sales_all' => ['$gt' => 100], // ADDED FOR TESTINTG
             'onhand' => ['$exists' => true],
             'avg_cost' => ['$exists' => true]
-		], // query (empty: select all)
-		[
+		], 
+		[   // options
             'projection' => ['avg_cost' => 1, 'onhand' => 1]
             //'limit' => 10
             //'sort' => [ 'onhand.BR01' => -1], 'skip' => 0, 'limit' => 1
-		] // options
+		] 
 	);
 
 	// Execute query and obtain cursor:
 	$cursor = $manager->executeQuery('onlinestore.products3', $query );
-	
-	// Display info in a table
-	//echo '<table class="fixed_headers seven_columns">';
-	//echo "<thead><tr><th>Product ID & Buyline</th><th>Product Description</th><th>$ / Qty: </th><th>onhand</th><th>avg cost</th></tr></thead>\n";
+	$j = 0; $k = 0;
 	foreach ($cursor as $doc) {
-
-		//echo '<tr><td><a href="product/'.$doc->_id .'/">'.$doc->_id . '</a> ('.$doc->pline. ')</td>'.
-		//'<td>--</td><td>$' . ''.
-        //"</td><td>".$doc->onhand->BR01."</td><td>". $doc->avg_cost->BR01 . "</td></tr>\n";
-        //echo $doc->_id . "<br />\n";
-        
         $bulk->update(['_id' => intval($doc->_id)], ['$set' => $mapping($doc)], ['multi' => false, 'upsert' => true]);
+        $j++;
+        if($j>10000){
+            $k++;
+            echo ','.$k;
+            $j=0;
+        }
 	}
-    //echo "</table>";
 
     $writeConcern = new MongoDB\Driver\WriteConcern(MongoDB\Driver\WriteConcern::MAJORITY, 100);
     $result = $manager->executeBulkWrite('onlinestore.products3', $bulk, $writeConcern);
 
     // display results on one line
-    printf("PHP matched %d, ", $result->getMatchedCount());
+    printf("\nmatched %d, ", $result->getMatchedCount());
     printf("inserted %d, ", $result->getInsertedCount());
     printf("updated %d, ", $result->getModifiedCount());
     printf("upserted %d.\n", $result->getUpsertedCount());
+    
+    $output = (object) [
+        'matched' => $result->getMatchedCount(),
+        'inserted' => $result->getInsertedCount(),
+        'modified' => $result->getModifiedCount(),
+        'upserted' => $result->getUpsertedCount()
+    ];
+
+    return $output;
+}
+
+// insert_log updates log collection
+function insert_log($log){
+    global $manager, $time1;
+    $bulk = new MongoDB\Driver\BulkWrite();
+
+    // creating document to insert into log collection
+    $_GET['file'] = 'Mass Load';
+    $doc = [
+        'date' => new MongoDB\BSON\UTCDateTime,
+        'execution_time' => round( ( (microtime(true) - $time1)),3 ),
+        'file_name' => $_GET['file'],
+        'matched' => $log->matched,
+        'inserted' => $log->inserted,
+        'updated' => $log->modified,
+        'upserted' => $log->upserted,
+        'ip' => $_SERVER['REMOTE_ADDR'],
+        'browser' => $_SERVER['HTTP_USER_AGENT'],
+        'page' => $_SERVER['REQUEST_URI']
+    ];
+
+    // inserting document into log collection
+    $bulk = new MongoDB\Driver\BulkWrite();
+    $bulk->insert($doc);
+    $writeConcern = new MongoDB\Driver\WriteConcern(MongoDB\Driver\WriteConcern::MAJORITY, 100);
+    $result = $manager->executeBulkWrite('onlinestore.insert_log', $bulk, $writeConcern);
+}
+
+
+
+// Mapping for populate_array()
+function elements($line){
+    $map = [
+        "branch" => ['$each' => $line]
+    ];
+    return $map;
+}
+/* To run this query in MongoDB Shell, use this command:
+   It works with testing mechanisms.
+function isNumber(n) {
+  return !isNaN(parseFloat(n)) && isFinite(n);
+}
+db.people.find( { "data" : { $type : 3 } } ).forEach( function (x) {
+  var out =[];
+  for( var i in x.data ) {
+    if (x.data.hasOwnProperty(i)){
+        if (isNumber(i)){
+            out[i] = x.data[i];
+        }else{
+          out.push(x.data[i]);
+        }
+    }
+  }
+  x.data = out
+    db.people.save(x);
+});
+*/
+
+// This function get data from each product as object and saves as an array.
+function populate_array(){
+    global $manager, $mapping, $time1;
+    $time1 = microtime(true);
+    $bulk = new MongoDB\Driver\BulkWrite();
+    $query = new MongoDB\Driver\Query(
+        [   
+            //'_id' => 1,
+            'sales' => ['$exists' => 1]
+		], 
+		[   // options
+            'projection' => ['sales' => 1]
+            //'limit' => 10
+            //'sort' => [ 'onhand.BR01' => -1], 'skip' => 0, 'limit' => 1
+		] 
+	);
+
+	// Execute query and obtain cursor:
+	$cursor = $manager->executeQuery('onlinestore.products3', $query );
+    $j = 0; $k = 0;
+    echo ' Array: ';
+	foreach ($cursor as $doc) {
+        $arr = toArray($doc->sales);
+        //$arr = $arr['sales'];
+        //print_r($arr);
+        $bulk->update(['_id' => intval($doc->_id)], ['$addToSet' => elements($arr)], ['multi' => false, 'upsert' => false]);
+        //echo 'out: ' . $doc->_id ."<br>\n";
+        $j++;
+        if($j>10000){
+            $k++;
+            echo ','.$k;
+            $j=0;
+        }
+    }
+
+    $writeConcern = new MongoDB\Driver\WriteConcern(MongoDB\Driver\WriteConcern::MAJORITY, 100);
+    $result = $manager->executeBulkWrite('onlinestore.products3', $bulk, $writeConcern);
+
+    // display results on one line
+    printf("\nmatched %d, ", $result->getMatchedCount());
+    printf("inserted %d, ", $result->getInsertedCount());
+    printf("updated %d, ", $result->getModifiedCount());
+    printf("upserted %d.\n", $result->getUpsertedCount());
+    
+    $output = (object) [
+        'matched' => $result->getMatchedCount(),
+        'inserted' => $result->getInsertedCount(),
+        'modified' => $result->getModifiedCount(),
+        'upserted' => $result->getUpsertedCount()
+    ];
+
+    return $output;
+}
+
+// toArray is special helper function to convert object to an array.
+function toArray($obj){
+    if (is_object($obj)) $obj = (array)$obj;
+    if (is_array($obj)) {
+        $new = array();
+        $i = 0;
+        foreach ($obj as $key => $val) {
+            $subArray['id'] = $key;
+            $subArray['sales'] = toArray($val);
+            $new[$i] = $subArray;
+            $i++;
+        }
+    } else {
+        $new = $obj;
+    }
+    return $new;
 }
 
 
 // show how much time it took to process
-echo 'PHP script execution time: ' .round( ( (microtime(true) - $time1)),3 ). ' milliseconds';
+echo 'PHP time: ' .round( ( (microtime(true) - $time2)),3 ). ' seconds';
 ?>
